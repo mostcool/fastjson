@@ -199,7 +199,8 @@ public class DefaultJSONParser implements Closeable {
 
        ParseContext context = this.context;
         try {
-            Map map = object instanceof JSONObject ? ((JSONObject) object).getInnerMap() : object;
+            boolean isJsonObjectMap = object instanceof JSONObject;
+            Map map = isJsonObjectMap ? ((JSONObject) object).getInnerMap() : object;
 
             boolean setContextFlag = false;
             for (;;) {
@@ -264,7 +265,7 @@ public class DefaultJSONParser implements Closeable {
                         } else {
                             key = lexer.decimalValue(true);
                         }
-                        if (lexer.isEnabled(Feature.NonStringKeyAsString)) {
+                        if (lexer.isEnabled(Feature.NonStringKeyAsString) || isJsonObjectMap) {
                             key = key.toString();
                         }
                     } catch (NumberFormatException e) {
@@ -340,19 +341,7 @@ public class DefaultJSONParser implements Closeable {
                             Object instance = null;
                             ObjectDeserializer deserializer = this.config.getDeserializer(clazz);
                             if (deserializer instanceof JavaBeanDeserializer) {
-                                JavaBeanDeserializer javaBeanDeserializer = (JavaBeanDeserializer) deserializer;
-                                instance = javaBeanDeserializer.createInstance(this, clazz);
-
-                                for (Object o : map.entrySet()) {
-                                    Map.Entry entry = (Map.Entry) o;
-                                    Object entryKey = entry.getKey();
-                                    if (entryKey instanceof String) {
-                                        FieldDeserializer fieldDeserializer = javaBeanDeserializer.getFieldDeserializer((String) entryKey);
-                                        if (fieldDeserializer != null) {
-                                            fieldDeserializer.setValue(instance, entry.getValue());
-                                        }
-                                    }
-                                }
+                            	instance = TypeUtils.cast(object, clazz, this.config);
                             }
 
                             if (instance == null) {
@@ -384,6 +373,7 @@ public class DefaultJSONParser implements Closeable {
 
                     if (object.size() > 0) {
                         Object newObj = TypeUtils.cast(object, clazz, this.config);
+                        this.setResolveStatus(NONE);
                         this.parseObject(newObj);
                         return newObj;
                     }
@@ -684,6 +674,9 @@ public class DefaultJSONParser implements Closeable {
 
         try {
             if (deserializer.getClass() == JavaBeanDeserializer.class) {
+                if (lexer.token()!= JSONToken.LBRACE && lexer.token()!=JSONToken.LBRACKET) {
+                throw new JSONException("syntax error,except start with { or [,but actually start with "+ lexer.tokenName());
+            }
                 return (T) ((JavaBeanDeserializer) deserializer).deserialze(this, type, fieldName, 0);
             } else {
                 return (T) deserializer.deserialze(this, type, fieldName);
@@ -845,8 +838,12 @@ public class DefaultJSONParser implements Closeable {
                     if (i == types.length - 1) {
                         if (type instanceof Class) {
                             Class<?> clazz = (Class<?>) type;
-                            isArray = clazz.isArray();
-                            componentType = clazz.getComponentType();
+                            //如果最后一个type是字节数组，且当前token为字符串类型，不应该当作可变长参数进行处理
+                            //而是作为一个整体的Base64字符串进行反序列化
+                            if (!((clazz == byte[].class || clazz == char[].class) && lexer.token() == LITERAL_STRING)) {
+                                isArray = clazz.isArray();
+                                componentType = clazz.getComponentType();
+                            }
                         }
                     }
 
