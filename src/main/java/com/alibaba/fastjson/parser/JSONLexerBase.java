@@ -1111,6 +1111,10 @@ public abstract class JSONLexerBase implements JSONLexer, Closeable {
                 && charAt(np + 4) == 'f';
     }
 
+    public String scanTypeName(SymbolTable symbolTable) {
+        return null;
+    }
+
     protected final static char[] typeFieldName = ("\"" + JSON.DEFAULT_TYPE_KEY + "\":\"").toCharArray();
 
     public final int scanType(String type) {
@@ -1409,7 +1413,11 @@ public abstract class JSONLexerBase implements JSONLexer, Closeable {
                 chLocal = charAt(bp + (offset++));
                 continue;
             } else {
-                matchStat = NOT_MATCH;
+                if (chLocal == ']') {
+                    bp += offset;
+                    this.ch = charAt(bp);
+                    matchStat = NOT_MATCH;
+                }
                 return strVal;
             }
         }
