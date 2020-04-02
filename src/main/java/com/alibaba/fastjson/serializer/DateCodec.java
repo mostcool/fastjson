@@ -82,6 +82,12 @@ public class DateCodec extends AbstractDateDeserializer implements ObjectSeriali
                 return;
             }
         }
+
+        int nanos = 0;
+        if (clazz == java.sql.Timestamp.class) {
+            java.sql.Timestamp ts = (java.sql.Timestamp) object;
+            nanos = ts.getNanos();
+        }
         
         Date date;
         if (object instanceof Date) {
@@ -147,7 +153,17 @@ public class DateCodec extends AbstractDateDeserializer implements ObjectSeriali
             int millis = calendar.get(Calendar.MILLISECOND);
 
             char[] buf;
-            if (millis != 0) {
+            if (nanos > 0) {
+                buf = "0000-00-00 00:00:00.000000000".toCharArray();
+                int nanoSize = IOUtils.stringSize(nanos);
+                IOUtils.getChars(nanos, 29 - (9 - nanoSize), buf);
+                IOUtils.getChars(second, 19, buf);
+                IOUtils.getChars(minute, 16, buf);
+                IOUtils.getChars(hour, 13, buf);
+                IOUtils.getChars(day, 10, buf);
+                IOUtils.getChars(month, 7, buf);
+                IOUtils.getChars(year, 4, buf);
+            } else if (millis != 0) {
                 buf = "0000-00-00T00:00:00.000".toCharArray();
                 IOUtils.getChars(millis, 23, buf);
                 IOUtils.getChars(second, 19, buf);
@@ -175,6 +191,10 @@ public class DateCodec extends AbstractDateDeserializer implements ObjectSeriali
             }
             
             out.write(buf);
+            if (nanos > 0) { // java.sql.Timestamp
+                out.write(quote);
+                return;
+            }
 
             float timeZoneF = calendar.getTimeZone().getOffset(calendar.getTimeInMillis()) / (3600.0f * 1000);
             int timeZone = (int)timeZoneF;
@@ -190,7 +210,7 @@ public class DateCodec extends AbstractDateDeserializer implements ObjectSeriali
                     out.writeInt(timeZone);
                 } else if (timeZone < -9) {
                     out.write('-');
-                    out.writeInt(timeZone);
+                    out.writeInt(-timeZone);
                 } else if (timeZone < 0) {
                     out.write('-');
                     out.write('0');
@@ -199,7 +219,7 @@ public class DateCodec extends AbstractDateDeserializer implements ObjectSeriali
                 out.write(':');
                 // handles uneven timeZones 30 mins, 45 mins
                 // this would always be less than 60
-                int offSet = (int)((timeZoneF - timeZone) * 60);
+                int offSet = (int)(Math.abs(timeZoneF - timeZone) * 60);
                 out.append(String.format("%02d", offSet));
             }
 

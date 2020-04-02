@@ -325,7 +325,7 @@ public class JavaBeanInfo {
                 String[] lookupParameterNames = null;
                 if (types.length > 0) {
                     Annotation[][] paramAnnotationArrays = TypeUtils.getParameterAnnotations(creatorConstructor);
-                    for (int i = 0; i < types.length; ++i) {
+                    for (int i = 0; i < types.length && i < paramAnnotationArrays.length; ++i) {
                         Annotation[] paramAnnotations = paramAnnotationArrays[i];
                         JSONField fieldAnnotation = null;
                         for (Annotation paramAnnotation : paramAnnotations) {
@@ -445,6 +445,8 @@ public class JavaBeanInfo {
                                 creatorConstructor.setAccessible(true);
                                 paramNames = ASMUtils.lookupParameterNames(constructor);
                                 break;
+                            } else {
+                                continue;
                             }
                         }
 
@@ -457,6 +459,8 @@ public class JavaBeanInfo {
                                 creatorConstructor.setAccessible(true);
                                 paramNames = new String[] {"principal", "credentials", "authorities"};
                                 break;
+                            } else {
+                                continue;
                             }
                         }
 
@@ -466,6 +470,8 @@ public class JavaBeanInfo {
                                 creatorConstructor = constructor;
                                 paramNames = new String[] {"authority"};
                                 break;
+                            } else {
+                                continue;
                             }
                         }
 

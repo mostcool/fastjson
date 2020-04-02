@@ -33,6 +33,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
@@ -61,16 +62,24 @@ import javax.xml.datatype.XMLGregorianCalendar;
  */
 public class ParserConfig {
 
+    public static final String    DENY_PROPERTY_INTERNAL    = "fastjson.parser.deny.internal";
     public static final String    DENY_PROPERTY             = "fastjson.parser.deny";
     public static final String    AUTOTYPE_ACCEPT           = "fastjson.parser.autoTypeAccept";
     public static final String    AUTOTYPE_SUPPORT_PROPERTY = "fastjson.parser.autoTypeSupport";
+    public static final String    SAFE_MODE_PROPERTY        = "fastjson.parser.safeMode";
 
+    public static  final String[] DENYS_INTERNAL;
     public static  final String[] DENYS;
     private static final String[] AUTO_TYPE_ACCEPT_LIST;
     public static  final boolean  AUTO_SUPPORT;
+    public static  final boolean  SAFE_MODE;
     private static final long[]   INTERNAL_WHITELIST_HASHCODES;
 
     static  {
+        {
+            String property = IOUtils.getStringProperty(DENY_PROPERTY_INTERNAL);
+            DENYS_INTERNAL = splitItemsFormProperty(property);
+        }
         {
             String property = IOUtils.getStringProperty(DENY_PROPERTY);
             DENYS = splitItemsFormProperty(property);
@@ -78,6 +87,10 @@ public class ParserConfig {
         {
             String property = IOUtils.getStringProperty(AUTOTYPE_SUPPORT_PROPERTY);
             AUTO_SUPPORT = "true".equals(property);
+        }
+        {
+            String property = IOUtils.getStringProperty(SAFE_MODE_PROPERTY);
+            SAFE_MODE = "true".equals(property);
         }
         {
             String property = IOUtils.getStringProperty(AUTOTYPE_ACCEPT);
@@ -88,82 +101,65 @@ public class ParserConfig {
             AUTO_TYPE_ACCEPT_LIST = items;
         }
 
-        String[] types = new String[] {
-                "java.awt.Rectangle",
-                "java.awt.Point",
-                "java.awt.Font",
-                "java.awt.Color",
-
-                "com.alibaba.fastjson.util.AntiCollisionHashMap",
-
-                "com.alipay.sofa.rpc.core.exception.SofaTimeOutException",
-                "java.util.Collections.UnmodifiableMap",
-                "java.util.concurrent.ConcurrentSkipListMap",
-                "java.util.concurrent.ConcurrentSkipListSet",
-
-                "org.springframework.dao.CannotAcquireLockException",
-                "org.springframework.dao.CannotSerializeTransactionException",
-                "org.springframework.dao.CleanupFailureDataAccessException",
-                "org.springframework.dao.ConcurrencyFailureException",
-                "org.springframework.dao.DataAccessResourceFailureException",
-                "org.springframework.dao.DataIntegrityViolationException",
-                "org.springframework.dao.DataRetrievalFailureException",
-                "org.springframework.dao.DeadlockLoserDataAccessException",
-                "org.springframework.dao.DuplicateKeyException",
-                "org.springframework.dao.EmptyResultDataAccessException",
-                "org.springframework.dao.IncorrectResultSizeDataAccessException",
-                "org.springframework.dao.IncorrectUpdateSemanticsDataAccessException",
-                "org.springframework.dao.InvalidDataAccessApiUsageException",
-                "org.springframework.dao.InvalidDataAccessResourceUsageException",
-                "org.springframework.dao.NonTransientDataAccessException",
-                "org.springframework.dao.NonTransientDataAccessResourceException",
-                "org.springframework.dao.OptimisticLockingFailureException",
-                "org.springframework.dao.PermissionDeniedDataAccessException",
-                "org.springframework.dao.PessimisticLockingFailureException",
-                "org.springframework.dao.QueryTimeoutException",
-                "org.springframework.dao.RecoverableDataAccessException",
-                "org.springframework.dao.TransientDataAccessException",
-                "org.springframework.dao.TransientDataAccessResourceException",
-                "org.springframework.dao.TypeMismatchDataAccessException",
-                "org.springframework.dao.UncategorizedDataAccessException",
-
-                "org.springframework.jdbc.BadSqlGrammarException",
-                "org.springframework.jdbc.CannotGetJdbcConnectionException",
-                "org.springframework.jdbc.IncorrectResultSetColumnCountException",
-                "org.springframework.jdbc.InvalidResultSetAccessException",
-                "org.springframework.jdbc.JdbcUpdateAffectedIncorrectNumberOfRowsException",
-                "org.springframework.jdbc.LobRetrievalFailureException",
-                "org.springframework.jdbc.SQLWarningException",
-                "org.springframework.jdbc.UncategorizedSQLException",
-
-                "org.springframework.cache.support.NullValue",
-
-                "org.springframework.security.oauth2.common.DefaultExpiringOAuth2RefreshToken",
-                "org.springframework.security.oauth2.common.DefaultOAuth2AccessToken",
-                "org.springframework.security.oauth2.common.DefaultOAuth2RefreshToken",
-
-                "org.springframework.util.LinkedMultiValueMap",
-                "org.springframework.util.LinkedCaseInsensitiveMap",
-
-                "org.springframework.remoting.support.RemoteInvocation",
-                "org.springframework.remoting.support.RemoteInvocationResult",
-
-                "org.springframework.security.web.savedrequest.DefaultSavedRequest",
-                "org.springframework.security.web.savedrequest.SavedCookie",
-                "org.springframework.security.web.csrf.DefaultCsrfToken",
-                "org.springframework.security.web.authentication.WebAuthenticationDetails",
-
-                "org.springframework.security.core.context.SecurityContextImpl",
-                "org.springframework.security.authentication.UsernamePasswordAuthenticationToken",
-                "org.springframework.security.core.authority.SimpleGrantedAuthority",
-                "org.springframework.security.core.userdetails.User",
+        INTERNAL_WHITELIST_HASHCODES = new long[] {
+                0x82E8E13016B73F9EL,
+                0x863D2DD1E82B9ED9L,
+                0x8B2081CB3A50BD44L,
+                0x90003416F28ACD89L,
+                0x92F252C398C02946L,
+                0x9E404E583F254FD4L,
+                0x9F2E20FB6049A371L,
+                0xA8AAA929446FFCE4L,
+                0xAB9B8D073948CA9DL,
+                0xAFCB539973CEA3F7L,
+                0xB5114C70135C4538L,
+                0xC0FE32B8DC897DE9L,
+                0xC59AA84D9A94C640L,
+                0xC92D8F9129AF339BL,
+                0xCC720543DC5E7090L,
+                0xD0E71A6E155603C1L,
+                0xD11D2A941337A7BCL,
+                0xDB7BFFC197369352L,
+                0xDC9583F0087CC2C7L,
+                0xDDAAA11FECA77B5EL,
+                0xE08EE874A26F5EAFL,
+                0xE794F5F7DCD3AC85L,
+                0xEB7D4786C473368DL,
+                0xF4AA683928027CDAL,
+                0xF8C7EF9B13231FB6L,
+                0xD45D6F8C9017FAL,
+                0x6B949CE6C2FE009L,
+                0x76566C052E83815L,
+                0x9DF9341F0C76702L,
+                0xB81BA299273D4E6L,
+                0xD4788669A13AE74L,
+                0x111D12921C5466DAL,
+                0x178B0E2DC3AE9FE5L,
+                0x19DCAF4ADC37D6D4L,
+                0x1F10A70EE4065963L,
+                0x21082DFBF63FBCC1L,
+                0x24AE2D07FB5D7497L,
+                0x26C5D923AF21E2E1L,
+                0x34CC8E52316FA0CBL,
+                0x3F64BC3933A6A2DFL,
+                0x42646E60EC7E5189L,
+                0x44D57A1B1EF53451L,
+                0x4A39C6C7ACB6AA18L,
+                0x4BB3C59964A2FC50L,
+                0x4F0C3688E8A18F9FL,
+                0x5449EC9B0280B9EFL,
+                0x54DC66A59269BAE1L,
+                0x552D9FB02FFC9DEFL,
+                0x557F642131553498L,
+                0x604D6657082C1EE9L,
+                0x61D10AF54471E5DEL,
+                0x64DC636F343516DCL,
+                0x73A0BE903F2BCBF4L,
+                0x73FBA1E41C4C3553L,
+                0x7B606F16A261E1E6L,
+                0x7F36112F218143B6L,
+                0x7FE2B8E675DA0CEFL
         };
-        long[] hashCodes = new long[types.length];
-        for (int i = 0; i < types.length; i++) {
-            hashCodes[i] = TypeUtils.fnv1a_64(types[i]);
-        }
-        Arrays.sort(hashCodes);
-        INTERNAL_WHITELIST_HASHCODES = hashCodes;
     }
 
     public static ParserConfig getGlobalInstance() {
@@ -191,6 +187,7 @@ public class ParserConfig {
     private static boolean                                  guavaError            = false;
 
     private boolean                                         autoTypeSupport       = AUTO_SUPPORT;
+    private long[]                                          internalDenyHashCodes;
     private long[]                                          denyHashCodes;
     private long[]                                          acceptHashCodes;
 
@@ -200,6 +197,8 @@ public class ParserConfig {
 
     public boolean                                          compatibleWithJavaBean = TypeUtils.compatibleWithJavaBean;
     private List<Module>                                    modules                = new ArrayList<Module>();
+    private volatile List<AutoTypeCheckHandler>             autoTypeCheckHandlers;
+    private boolean                                         safeMode               = SAFE_MODE;
 
     {
         denyHashCodes = new long[]{
@@ -210,12 +209,15 @@ public class ParserConfig {
                 0x8F75F9FA0DF03F80L,
                 0x9172A53F157930AFL,
                 0x92122D710E364FB8L,
-                0x92122D710E364FB8L,
+                0x941866E73BEFF4C9L,
                 0x94305C26580F73C5L,
                 0x9437792831DF7D3FL,
                 0xA123A62F93178B20L,
                 0xA85882CE1044C450L,
                 0xAA3DAFFDB10C4937L,
+                0xAC6262F52C98AA39L,
+                0xAD937A449831E8A0L,
+                0xAE50DA1FAD60A096L,
                 0xAFFF4C95B99A334DL,
                 0xB40F341C746EC94FL,
                 0xB7E8ED757F5D13A2L,
@@ -223,9 +225,13 @@ public class ParserConfig {
                 0xC00BE1DEBAF2808BL,
                 0xC2664D0958ECFE4CL,
                 0xC7599EBFE3E72406L,
+                0xC8D49E5601E661A9L,
                 0xC963695082FD728EL,
                 0xD1EFCDF4B3316D34L,
-                0xD9C9DBF6BBD27BB1L,
+                0xD54B91CC77B239EDL,
+                0xD8CA3D595E982BACL,
+                0xDE23A0809A8B9BD6L,
+                0xDEFC208F237D4104L,
                 0xDF2DDFF310CDB375L,
                 0xE09AE4604842582FL,
                 0xE1919804D5BF468FL,
@@ -233,56 +239,78 @@ public class ParserConfig {
                 0xE603D6A51FAD692BL,
                 0xE9184BE55B1D962AL,
                 0xE9F20BAD25F60807L,
+                0xF3702A4A5490B8E8L,
+                0xF474E44518F26736L,
+                0xF7E96E74DFA58DBCL,
                 0xFC773AE20C827691L,
                 0xFD5BFC610056D720L,
+                0xFFA15BF021F1E37CL,
                 0xFFDD1A80F1ED3405L,
                 0x10E067CD55C5E5L,
                 0x761619136CC13EL,
                 0x3085068CB7201B8L,
                 0x45B11BC78A3ABA3L,
+                0x55CFCA0F2281C07L,
                 0xB6E292FA5955ADEL,
                 0xEE6511B66FD5EF0L,
+                0x100150A253996624L,
                 0x10B2BDCA849D9B3EL,
                 0x144277B467723158L,
                 0x14DB2E6FEAD04AF0L,
                 0x154B6CB22D294CFAL,
+                0x17924CCA5227622AL,
                 0x193B2697EAAED41AL,
+                0x1CD6F11C6A358BB7L,
                 0x1E0A8C3358FF3DAEL,
                 0x24D2F6048FEF4E49L,
+                0x24EC99D5E7DC5571L,
+                0x25E962F1C28F71A2L,
                 0x275D0732B877AF29L,
                 0x2ADFEFBBFE29D931L,
                 0x2B3A37467A344CDFL,
                 0x2D308DBBC851B0D8L,
                 0x313BB4ABD8D4554CL,
+                0x327C8ED7C8706905L,
                 0x332F0B5369A18310L,
                 0x339A3E0B6BEEBEE9L,
                 0x33C64B921F523F2FL,
                 0x34A81EE78429FDF1L,
                 0x3826F4B2380C8B9BL,
                 0x398F942E01920CF0L,
+                0x3B0B51ECBF6DB221L,
                 0x42D11A560FC9FBA9L,
                 0x43320DC9D2AE0892L,
                 0x440E89208F445FB9L,
                 0x46C808A4B5841F57L,
+                0x49312BDAFB0077D9L,
                 0x4A3797B30328202CL,
                 0x4BA3E254E758D70DL,
+                0x4BF881E49D37F530L,
+                0x4DA972745FEB30C1L,
                 0x4EF08C90FF16C675L,
                 0x4FD10DDC6D13821FL,
                 0x527DB6B46CE3BCBCL,
+                0x535E552D6F9700C1L,
                 0x5728504A6D454FFCL,
                 0x599B5C1213A099ACL,
                 0x5A5BD85C072E5EFEL,
                 0x5AB0CB3071AB40D1L,
                 0x5D74D3E5B9370476L,
                 0x5D92E6DDDE40ED84L,
+                0x5F215622FB630753L,
                 0x62DB241274397C34L,
                 0x63A220E60A17C7B9L,
+                0x665C53C311193973L,
                 0x6749835432E0F0D2L,
+                0x6A47501EBB2AFDB2L,
+                0x6FCABF6FA54CAFFFL,
                 0x746BD4A53EC195FBL,
                 0x74B50BB9260E31FFL,
                 0x75CC60F5871D0FD3L,
                 0x767A586A5107FEEFL,
-                0x7AA7EE3627A19CF3L
+                0x7AA7EE3627A19CF3L,
+                0x7ED9311D28BF1A65L,
+                0x7ED9481D28BF417AL
         };
 
         long[] hashCodes = new long[AUTO_TYPE_ACCEPT_LIST.length];
@@ -337,6 +365,7 @@ public class ParserConfig {
         initDeserializers();
 
         addItemsToDeny(DENYS);
+        addItemsToDeny0(DENYS_INTERNAL);
         addItemsToAccept(AUTO_TYPE_ACCEPT_LIST);
 
     }
@@ -452,6 +481,17 @@ public class ParserConfig {
         }
     }
 
+    private void addItemsToDeny0(final String[] items){
+        if (items == null){
+            return;
+        }
+
+        for (int i = 0; i < items.length; ++i) {
+            String item = items[i];
+            this.addDenyInternal(item);
+        }
+    }
+
     private void addItemsToDeny(final String[] items){
         if (items == null){
             return;
@@ -472,6 +512,20 @@ public class ParserConfig {
             String item = items[i];
             this.addAccept(item);
         }
+    }
+
+    /**
+     * @since 1.2.68
+     */
+    public boolean isSafeMode() {
+        return safeMode;
+    }
+
+    /**
+     * @since 1.2.68
+     */
+    public void setSafeMode(boolean safeMode) {
+        this.safeMode = safeMode;
     }
 
     public boolean isAutoTypeSupport() {
@@ -1100,6 +1154,28 @@ public class ParserConfig {
         this.defaultClassLoader = defaultClassLoader;
     }
 
+    public void addDenyInternal(String name) {
+        if (name == null || name.length() == 0) {
+            return;
+        }
+
+        long hash = TypeUtils.fnv1a_64(name);
+        if (internalDenyHashCodes == null) {
+            this.internalDenyHashCodes = new long[] {hash};
+            return;
+        }
+
+        if (Arrays.binarySearch(this.internalDenyHashCodes, hash) >= 0) {
+            return;
+        }
+
+        long[] hashCodes = new long[this.internalDenyHashCodes.length + 1];
+        hashCodes[hashCodes.length - 1] = hash;
+        System.arraycopy(this.internalDenyHashCodes, 0, hashCodes, 0, this.internalDenyHashCodes.length);
+        Arrays.sort(hashCodes);
+        this.internalDenyHashCodes = hashCodes;
+    }
+
     public void addDeny(String name) {
         if (name == null || name.length() == 0) {
             return;
@@ -1151,6 +1227,23 @@ public class ParserConfig {
             return null;
         }
 
+        if (autoTypeCheckHandlers != null) {
+            for (AutoTypeCheckHandler h : autoTypeCheckHandlers) {
+                Class<?> type = h.handler(typeName, expectClass, features);
+                if (type != null) {
+                    return type;
+                }
+            }
+        }
+
+        final int safeModeMask = Feature.SafeMode.mask;
+        boolean safeMode = this.safeMode
+                || (features & safeModeMask) != 0
+                || (JSON.DEFAULT_PARSER_FEATURE & safeModeMask) != 0;
+        if (safeMode) {
+            throw new JSONException("safeMode not support autoType : " + typeName);
+        }
+
         if (typeName.length() >= 192 || typeName.length() < 3) {
             throw new JSONException("autoType is not support. " + typeName);
         }
@@ -1174,7 +1267,7 @@ public class ParserConfig {
         }
 
         String className = typeName.replace('$', '.');
-        Class<?> clazz = null;
+        Class<?> clazz;
 
         final long BASIC = 0xcbf29ce484222325L;
         final long PRIME = 0x100000001b3L;
@@ -1195,9 +1288,19 @@ public class ParserConfig {
                 ^ className.charAt(2))
                 * PRIME;
 
-        boolean internalWhite = Arrays.binarySearch(INTERNAL_WHITELIST_HASHCODES,
-                TypeUtils.fnv1a_64(className)
-        ) >= 0;
+        long fullHash = TypeUtils.fnv1a_64(className);
+        boolean internalWhite = Arrays.binarySearch(INTERNAL_WHITELIST_HASHCODES,  fullHash) >= 0;
+
+        if (internalDenyHashCodes != null) {
+            long hash = h3;
+            for (int i = 3; i < className.length(); ++i) {
+                hash ^= className.charAt(i);
+                hash *= PRIME;
+                if (Arrays.binarySearch(internalDenyHashCodes, hash) >= 0) {
+                    throw new JSONException("autoType is not support. " + typeName);
+                }
+            }
+        }
 
         if ((!internalWhite) && (autoTypeSupport || expectClassFlag)) {
             long hash = h3;
@@ -1211,14 +1314,16 @@ public class ParserConfig {
                     }
                 }
                 if (Arrays.binarySearch(denyHashCodes, hash) >= 0 && TypeUtils.getClassFromMapping(typeName) == null) {
+                    if (Arrays.binarySearch(acceptHashCodes, fullHash) >= 0) {
+                        continue;
+                    }
+
                     throw new JSONException("autoType is not support. " + typeName);
                 }
             }
         }
 
-        if (clazz == null) {
-            clazz = TypeUtils.getClassFromMapping(typeName);
-        }
+        clazz = TypeUtils.getClassFromMapping(typeName);
 
         if (clazz == null) {
             clazz = deserializers.findClass(typeName);
@@ -1255,9 +1360,7 @@ public class ParserConfig {
 
                 // white list
                 if (Arrays.binarySearch(acceptHashCodes, hash) >= 0) {
-                    if (clazz == null) {
-                        clazz = TypeUtils.loadClass(typeName, defaultClassLoader, true);
-                    }
+                    clazz = TypeUtils.loadClass(typeName, defaultClassLoader, true);
 
                     if (expectClass != null && expectClass.isAssignableFrom(clazz)) {
                         throw new JSONException("type not match. " + typeName + " -> " + expectClass.getName());
@@ -1294,7 +1397,7 @@ public class ParserConfig {
                 || (features & mask) != 0
                 || (JSON.DEFAULT_PARSER_FEATURE & mask) != 0;
 
-        if (clazz == null && (autoTypeSupport || jsonType || expectClassFlag)) {
+        if (autoTypeSupport || jsonType || expectClassFlag) {
             boolean cacheClass = autoTypeSupport || jsonType;
             clazz = TypeUtils.loadClass(typeName, defaultClassLoader, cacheClass);
         }
@@ -1357,5 +1460,23 @@ public class ParserConfig {
 
     public void register(Module module) {
         this.modules.add(module);
+    }
+
+    public void addAutoTypeCheckHandler(AutoTypeCheckHandler h) {
+        List<AutoTypeCheckHandler> autoTypeCheckHandlers = this.autoTypeCheckHandlers;
+        if (autoTypeCheckHandlers == null) {
+            this.autoTypeCheckHandlers
+                    = autoTypeCheckHandlers
+                    = new CopyOnWriteArrayList();
+        }
+
+        autoTypeCheckHandlers.add(h);
+    }
+
+    /**
+     * @since 1.2.68
+     */
+    public interface AutoTypeCheckHandler {
+        Class<?> handler(String typeName, Class<?> expectClass, int features);
     }
 }

@@ -457,8 +457,6 @@ public class JavaBeanDeserializer implements ObjectDeserializer {
                             }
                         }
                     }
-                } else if (token == JSONToken.LITERAL_ISO8601_DATE) {
-                    Calendar calendar = lexer.getCalendar();
                 }
 
                 if (token == JSONToken.LBRACKET && lexer.getCurrent() == ']') {
@@ -812,7 +810,9 @@ public class JavaBeanDeserializer implements ObjectDeserializer {
                                 JavaBeanDeserializer javaBeanDeserializer = (JavaBeanDeserializer) deserializer;
                                 if (typeKey != null) {
                                     FieldDeserializer typeKeyFieldDeser = javaBeanDeserializer.getFieldDeserializer(typeKey);
-                                    typeKeyFieldDeser.setValue(typedObject, typeName);
+                                    if (typeKeyFieldDeser != null) {
+                                        typeKeyFieldDeser.setValue(typedObject, typeName);
+                                    }
                                 }
                             }
                             return (T) typedObject;
@@ -1358,6 +1358,15 @@ public class JavaBeanDeserializer implements ObjectDeserializer {
                 Field field = fieldDeser.fieldInfo.field;
                 Type paramType = fieldInfo.fieldType;
 
+                if (fieldInfo.declaringClass != null
+                        && fieldInfo.getAnnotation() != null
+                        && fieldInfo.getAnnotation().deserializeUsing() != Void.class
+                        && fieldInfo.fieldClass.isInstance(value)) {
+                    DefaultJSONParser parser = new DefaultJSONParser(JSON.toJSONString(value));
+                    fieldDeser.parseField(parser, object, paramType, null);
+                    continue;
+                }
+
                 if (field != null) {
                     Class fieldType = field.getType();
                     if (fieldType == boolean.class) {
@@ -1419,8 +1428,10 @@ public class JavaBeanDeserializer implements ObjectDeserializer {
                 }
 
                 String format = fieldInfo.format;
-                if (format != null && paramType == java.util.Date.class) {
+                if (format != null && paramType == Date.class) {
                     value = TypeUtils.castToDate(value, format);
+                } else if (format != null && (paramType instanceof Class) && (((Class) paramType).getName().equals("java.time.LocalDateTime"))) {
+                    value = TypeUtils.castToLocalDateTime(value, format);
                 } else {
                     if (paramType instanceof ParameterizedType) {
                         value = TypeUtils.cast(value, (ParameterizedType) paramType, config);

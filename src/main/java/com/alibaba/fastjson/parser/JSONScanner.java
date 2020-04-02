@@ -392,8 +392,15 @@ public final class JSONScanner extends JSONLexerBase {
             y3 = c3;
             M0 = c5;
             M1 = c6;
-            d0 = c8;
-            d1 = c9;
+
+            if (c9 == ' ') {
+                d0 = '0';
+                d1 = c8;
+                date_len = 9;
+            } else {
+                d0 = c8;
+                d1 = c9;
+            }
         } else if ((c4 == '-' && c6 == '-') // cn yyyy-m-dd
         ) {
             y0 = c0;
@@ -618,9 +625,11 @@ public final class JSONScanner extends JSONLexerBase {
                 if(t3 == '4' && t4 == '5') {
                     // handle some special timezones like xx:45
 
-                    if (t0 == '1' && t1 == '2') {
+                    if (t0 == '1' && (t1 == '2' || t1 == '3')) {
                         // NZ-CHAT          => +12:45
                         // Pacific/Chatham  => +12:45
+                        // NZ-CHAT          => +13:45 (DST)
+                        // Pacific/Chatham  => +13:45 (DST)
                     } else if (t0 == '0' && (t1 == '5' || t1 == '8')) {
                         // Asia/Kathmandu   => +05:45
                         // Asia/Katmandu    => +05:45
@@ -704,11 +713,7 @@ public final class JSONScanner extends JSONLexerBase {
         }
 
         if (calendar.getTimeZone().getRawOffset() != timeZoneOffset) {
-            String[] timeZoneIDs = TimeZone.getAvailableIDs(timeZoneOffset);
-            if (timeZoneIDs.length > 0) {
-                TimeZone timeZone = TimeZone.getTimeZone(timeZoneIDs[0]);
-                calendar.setTimeZone(timeZone);
-            }
+            calendar.setTimeZone(new SimpleTimeZone(timeZoneOffset, Integer.toString(timeZoneOffset)));
         }
     }
 
@@ -2345,6 +2350,12 @@ public final class JSONScanner extends JSONLexerBase {
                     }
                     return;
                 }
+            }
+        }
+
+        for (int j = 0; j < bp; j++) {
+            if (j < text.length() && text.charAt(j) == ' ') {
+                i++;
             }
         }
 
