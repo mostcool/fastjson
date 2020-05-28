@@ -155,8 +155,7 @@ public class DateCodec extends AbstractDateDeserializer implements ObjectSeriali
             char[] buf;
             if (nanos > 0) {
                 buf = "0000-00-00 00:00:00.000000000".toCharArray();
-                int nanoSize = IOUtils.stringSize(nanos);
-                IOUtils.getChars(nanos, 29 - (9 - nanoSize), buf);
+                IOUtils.getChars(nanos, 29, buf);
                 IOUtils.getChars(second, 19, buf);
                 IOUtils.getChars(minute, 16, buf);
                 IOUtils.getChars(hour, 13, buf);
@@ -189,12 +188,22 @@ public class DateCodec extends AbstractDateDeserializer implements ObjectSeriali
                     IOUtils.getChars(year, 4, buf);
                 }
             }
-            
-            out.write(buf);
+
+
             if (nanos > 0) { // java.sql.Timestamp
+                int i = 0;
+                for (; i < 9; ++i) {
+                    int off = buf.length - i - 1;
+                    if (buf[off] != '0') {
+                        break;
+                    }
+                }
+                out.write(buf, 0, buf.length - i);
                 out.write(quote);
                 return;
             }
+
+            out.write(buf);
 
             float timeZoneF = calendar.getTimeZone().getOffset(calendar.getTimeInMillis()) / (3600.0f * 1000);
             int timeZone = (int)timeZoneF;
