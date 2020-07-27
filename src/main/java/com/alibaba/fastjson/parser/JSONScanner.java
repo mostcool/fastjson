@@ -21,6 +21,7 @@ import com.alibaba.fastjson.util.ASMUtils;
 import com.alibaba.fastjson.util.IOUtils;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.*;
 
 //这个类，为了性能优化做了很多特别处理，一切都是为了性能！！！
@@ -188,14 +189,18 @@ public final class JSONScanner extends JSONLexerBase {
             sp--;
         }
 
+        if (sp > 65535) {
+            throw new JSONException("decimal overflow");
+        }
+
         int offset = np, count = sp;
         if (count < sbuf.length) {
             text.getChars(offset, offset + count, sbuf, 0);
-            return new BigDecimal(sbuf, 0, count);
+            return new BigDecimal(sbuf, 0, count, MathContext.UNLIMITED);
         } else {
             char[] chars = new char[count];
             text.getChars(offset, offset + count, chars, 0);
-            return new BigDecimal(chars);
+            return new BigDecimal(chars, 0, chars.length, MathContext.UNLIMITED);
         }
     }
 
@@ -946,6 +951,7 @@ public final class JSONScanner extends JSONLexerBase {
         int startPos = this.bp;
         char startChar = this.ch;
 
+
         for (;;) {
             if (!charArrayCompare(text, bp, fieldName)) {
                 if (isWhitespace(ch)) {
@@ -965,9 +971,11 @@ public final class JSONScanner extends JSONLexerBase {
 
         int index = bp + fieldName.length;
 
+        int spaceCount = 0;
         char ch = charAt(index++);
         if (ch != '"') {
             while (isWhitespace(ch)) {
+                spaceCount++;
                 ch = charAt(index++);
             }
 
@@ -1003,10 +1011,14 @@ public final class JSONScanner extends JSONLexerBase {
                     endIndex = indexOf('"', endIndex + 1);
                 }
 
-                int chars_len = endIndex - (bp + fieldName.length + 1);
-                char[] chars = sub_chars(bp + fieldName.length + 1, chars_len);
+                int chars_len = endIndex - (bp + fieldName.length + 1 + spaceCount);
+                char[] chars = sub_chars(bp + fieldName.length + 1 + spaceCount, chars_len);
 
                 stringVal = readString(chars, chars_len);
+            }
+
+            if ((this.features & Feature.TrimStringFieldValue.mask) != 0) {
+                stringVal = stringVal.trim();
             }
 
             ch = charAt(endIndex + 1);
@@ -1196,11 +1208,12 @@ public final class JSONScanner extends JSONLexerBase {
         }
 
         int index = bp + fieldName.length;
-
+        int spaceCount = 0;
         char ch = charAt(index++);
         if (ch != '"') {
             while (isWhitespace(ch)) {
                 ch = charAt(index++);
+                spaceCount++;
             }
 
             if (ch != '"') {

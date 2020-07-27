@@ -46,6 +46,8 @@ public class FieldInfo implements Comparable<FieldInfo> {
     public final String     format;
 
     public final String[]  alternateNames;
+
+    public final long nameHashCode;
     
     public FieldInfo(String name, // 
                      Class<?> declaringClass, // 
@@ -94,6 +96,8 @@ public class FieldInfo implements Comparable<FieldInfo> {
         this.unwrapped = false;
         this.format = null;
         this.alternateNames = new String[0];
+
+        nameHashCode = nameHashCode64(name, fieldAnnotation);
     }
 
     public FieldInfo(String name, //
@@ -142,7 +146,7 @@ public class FieldInfo implements Comparable<FieldInfo> {
         this.parserFeatures = parserFeatures;
         this.fieldAnnotation = fieldAnnotation;
         this.methodAnnotation = methodAnnotation;
-        
+
         if (field != null) {
             int modifiers = field.getModifiers();
             fieldAccess = ((modifiers & Modifier.PUBLIC) != 0 || method == null);
@@ -161,6 +165,8 @@ public class FieldInfo implements Comparable<FieldInfo> {
         
         String format = null;
         JSONField annotation = getAnnotation();
+
+        nameHashCode = nameHashCode64(name, annotation);
 
         boolean jsonDirect = false;
         if (annotation != null) {
@@ -245,7 +251,15 @@ public class FieldInfo implements Comparable<FieldInfo> {
         
         isEnum = fieldClass.isEnum();
     }
-    
+
+    private long nameHashCode64(String name, JSONField annotation)
+    {
+        if (annotation != null && annotation.name().length() != 0) {
+            return TypeUtils.fnv1a_64_lower(name);
+        }
+        return TypeUtils.fnv1a_64_extract(name);
+    }
+
     protected char[] genFieldNameChars() {
         int nameLen = this.name.length();
         char[] name_chars = new char[nameLen + 3];
@@ -470,6 +484,13 @@ public class FieldInfo implements Comparable<FieldInfo> {
     }
 
     public int compareTo(FieldInfo o) {
+        // Deal extend bridge
+        if (o.method != null && this.method != null
+                && o.method.isBridge() && !this.method.isBridge()
+                && o.method.getName().equals(this.method.getName())) {
+            return 1;
+        }
+
         if (this.ordinal < o.ordinal) {
             return -1;
         }
@@ -496,7 +517,6 @@ public class FieldInfo implements Comparable<FieldInfo> {
                 return 1;
             }
         }
-        
         boolean isSampeType = this.field != null && this.field.getType() == this.fieldClass;
         boolean oSameType = o.field != null && o.field.getType() == o.fieldClass;
         
