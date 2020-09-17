@@ -44,7 +44,7 @@ https://github.com/eishay/jvm-serializers/wiki
 <dependency>
     <groupId>com.alibaba</groupId>
     <artifactId>fastjson</artifactId>
-    <version>1.2.70</version>
+    <version>1.2.73</version>
 </dependency>
 ```
 
@@ -52,18 +52,18 @@ https://github.com/eishay/jvm-serializers/wiki
 <dependency>
     <groupId>com.alibaba</groupId>
     <artifactId>fastjson</artifactId>
-    <version>1.1.71.android</version>
+    <version>1.1.72.android</version>
 </dependency>
 ```
 
 ## Gradle via JCenter
 
 ``` groovy
-compile 'com.alibaba:fastjson:1.2.70'
+compile 'com.alibaba:fastjson:1.2.73'
 ```
 
 ``` groovy
-compile 'com.alibaba:fastjson:1.1.71.android'
+compile 'com.alibaba:fastjson:1.1.72.android'
 ```
 
 Please see this [Wiki Download Page][Wiki] for more repository infos.
@@ -75,7 +75,7 @@ Please see this [Wiki Download Page][Wiki] for more repository infos.
 Fastjson is released under the [Apache 2.0 license](license.txt).
 
 ```
-Copyright 1999-2019 Alibaba Group Holding Ltd.
+Copyright 1999-2020 Alibaba Group Holding Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

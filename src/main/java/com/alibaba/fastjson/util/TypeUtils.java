@@ -317,20 +317,30 @@ public class TypeUtils{
     }
 
     public static BigDecimal castToBigDecimal(Object value){
-        if(value == null){
+        if (value == null) {
             return null;
         }
-        if(value instanceof BigDecimal){
+
+        if (value instanceof Float) {
+            if (Float.isNaN((Float) value) || Float.isInfinite((Float) value)) {
+                return null;
+            }
+        } else if (value instanceof Double) {
+            if (Double.isNaN((Double) value) || Double.isInfinite((Double) value)) {
+                return null;
+            }
+        } else if (value instanceof BigDecimal) {
             return (BigDecimal) value;
-        }
-        if(value instanceof BigInteger){
+        } else if (value instanceof BigInteger) {
             return new BigDecimal((BigInteger) value);
-        }
-        String strVal = value.toString();
-        if(strVal.length() == 0){
+        } else if (value instanceof Map && ((Map) value).size() == 0) {
             return null;
         }
-        if(value instanceof Map && ((Map) value).size() == 0){
+
+        String strVal = value.toString();
+
+        if (strVal.length() == 0
+                || strVal.equalsIgnoreCase("null")) {
             return null;
         }
 
@@ -339,35 +349,44 @@ public class TypeUtils{
         }
         return new BigDecimal(strVal);
     }
-
-    public static BigInteger castToBigInteger(Object value){
-        if(value == null){
+    
+    public static BigInteger castToBigInteger(Object value) {
+        if (value == null) {
             return null;
         }
-        if(value instanceof BigInteger){
+
+        if (value instanceof Float) {
+            Float floatValue = (Float) value;
+            if (Float.isNaN(floatValue) || Float.isInfinite(floatValue)) {
+                return null;
+            }
+            return BigInteger.valueOf(floatValue.longValue());
+        } else if (value instanceof Double) {
+            Double doubleValue = (Double) value;
+            if (Double.isNaN(doubleValue) || Double.isInfinite(doubleValue)) {
+                return null;
+            }
+            return BigInteger.valueOf(doubleValue.longValue());
+        } else if (value instanceof BigInteger) {
             return (BigInteger) value;
-        }
-        if(value instanceof Float || value instanceof Double){
-            return BigInteger.valueOf(((Number) value).longValue());
-        }
-        if(value instanceof BigDecimal){
+        } else if (value instanceof BigDecimal) {
             BigDecimal decimal = (BigDecimal) value;
             int scale = decimal.scale();
             if (scale > -1000 && scale < 1000) {
                 return ((BigDecimal) value).toBigInteger();
             }
         }
+
         String strVal = value.toString();
-        if(strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)){
+
+        if (strVal.length() == 0
+                || strVal.equalsIgnoreCase("null")) {
             return null;
         }
 
         if (strVal.length() > 65535) {
             throw new JSONException("decimal overflow");
         }
-
         return new BigInteger(strVal);
     }
 
