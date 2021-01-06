@@ -494,18 +494,19 @@ public class TypeUtils{
 
             if (strVal.indexOf('-') > 0 || strVal.indexOf('+') > 0 || format != null) {
                 if (format == null) {
-                    if (strVal.length() == JSON.DEFFAULT_DATE_FORMAT.length()
-                            || (strVal.length() == 22 && JSON.DEFFAULT_DATE_FORMAT.equals("yyyyMMddHHmmssSSSZ"))) {
+                    final int len = strVal.length();
+                    if (len == JSON.DEFFAULT_DATE_FORMAT.length()
+                            || (len == 22 && JSON.DEFFAULT_DATE_FORMAT.equals("yyyyMMddHHmmssSSSZ"))) {
                         format = JSON.DEFFAULT_DATE_FORMAT;
-                    } else if (strVal.length() == 10) {
+                    } else if (len == 10) {
                         format = "yyyy-MM-dd";
-                    } else if (strVal.length() == "yyyy-MM-dd HH:mm:ss".length()) {
+                    } else if (len == "yyyy-MM-dd HH:mm:ss".length()) {
                         format = "yyyy-MM-dd HH:mm:ss";
-                    } else if (strVal.length() == 29
+                    } else if (len == 29
                             && strVal.charAt(26) == ':'
                             && strVal.charAt(28) == '0') {
                         format = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
-                    } else if (strVal.length() == 23 && strVal.charAt(19) == ',') {
+                    } else if (len == 23 && strVal.charAt(19) == ',') {
                         format = "yyyy-MM-dd HH:mm:ss,SSS";
                     } else {
                         format = "yyyy-MM-dd HH:mm:ss.SSS";
@@ -1521,9 +1522,6 @@ public class TypeUtils{
                 Map innerMap = jsonObject.getInnerMap();
                 if (innerMap instanceof LinkedHashMap) {
                     return (T) innerMap;
-                } else {
-                    LinkedHashMap linkedHashMap = new LinkedHashMap();
-                    linkedHashMap.putAll(innerMap);
                 }
             }
 
@@ -1696,8 +1694,12 @@ public class TypeUtils{
     }
 
     public static Class<?> loadClass(String className, ClassLoader classLoader, boolean cache) {
-        if(className == null || className.length() == 0 || className.length() > 128){
+        if(className == null || className.length() == 0){
             return null;
+        }
+
+        if (className.length() > 198) {
+            throw new JSONException("illegal className : " + className);
         }
 
         Class<?> clazz = mappings.get(className);
@@ -2209,13 +2211,9 @@ public class TypeUtils{
                     map.remove(item);
                 }
             }
-            for(FieldInfo field : map.values()){
-                fieldInfoList.add(field);
-            }
+            fieldInfoList.addAll(map.values());
         } else{
-            for(FieldInfo fieldInfo : fieldInfoMap.values()){
-                fieldInfoList.add(fieldInfo);
-            }
+            fieldInfoList.addAll(fieldInfoMap.values());
             if(sorted){
                 Collections.sort(fieldInfoList);
             }
@@ -2733,6 +2731,9 @@ public class TypeUtils{
                 return true;
             }
             if (interfaceName.equals("org.hibernate.proxy.HibernateProxy")) {
+                return true;
+            }
+            if (interfaceName.equals("org.springframework.context.annotation.ConfigurationClassEnhancer$EnhancedConfiguration")){
                 return true;
             }
         }

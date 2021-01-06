@@ -15,8 +15,13 @@
  */
 package com.alibaba.fastjson.parser;
 
-import static com.alibaba.fastjson.parser.JSONLexer.EOI;
-import static com.alibaba.fastjson.parser.JSONToken.*;
+import com.alibaba.fastjson.*;
+import com.alibaba.fastjson.parser.deserializer.*;
+import com.alibaba.fastjson.serializer.BeanContext;
+import com.alibaba.fastjson.serializer.IntegerCodec;
+import com.alibaba.fastjson.serializer.LongCodec;
+import com.alibaba.fastjson.serializer.StringCodec;
+import com.alibaba.fastjson.util.TypeUtils;
 
 import java.io.Closeable;
 import java.lang.reflect.ParameterizedType;
@@ -29,10 +34,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-import com.alibaba.fastjson.*;
-import com.alibaba.fastjson.parser.deserializer.*;
-import com.alibaba.fastjson.serializer.*;
-import com.alibaba.fastjson.util.TypeUtils;
+import static com.alibaba.fastjson.parser.JSONLexer.EOI;
+import static com.alibaba.fastjson.parser.JSONToken.*;
 
 /**
  * @author wenshao[szujobs@hotmail.com]
@@ -97,9 +100,7 @@ public class DefaultJSONParser implements Closeable {
                 String.class
         };
 
-        for (Class<?> clazz : classes) {
-            primitiveClasses.add(clazz);
-        }
+        primitiveClasses.addAll(Arrays.asList(classes));
     }
 
     public String getDateFomartPattern() {
@@ -119,7 +120,15 @@ public class DefaultJSONParser implements Closeable {
         this.dateFormat = null;
     }
 
+    /**
+     * @deprecated
+     * @see setDateFormat
+     */
     public void setDateFomrat(DateFormat dateFormat) {
+        this.setDateFormat(dateFormat);
+    }
+
+    public void setDateFormat(DateFormat dateFormat) {
         this.dateFormat = dateFormat;
     }
 
@@ -553,7 +562,7 @@ public class DefaultJSONParser implements Closeable {
                     ParseContext ctxLocal = null;
 
                     if (!parentIsArray) {
-                        ctxLocal = setContext(context, input, key);
+                        ctxLocal = setContext(this.context, input, key);
                     }
 
                     Object obj = null;
@@ -1275,6 +1284,10 @@ public class DefaultJSONParser implements Closeable {
         return context;
     }
 
+    public ParseContext getOwnerContext() {
+        return context.parent;
+    }
+
     public List<ResolveTask> getResolveTaskList() {
         if (resolveTaskList == null) {
             resolveTaskList = new ArrayList<ResolveTask>(2);
@@ -1594,6 +1607,19 @@ public class DefaultJSONParser implements Closeable {
                     JSONPath jsonpath = JSONPath.compile(ref);
                     if (jsonpath.isRef()) {
                         refValue = jsonpath.eval(root);
+                    }
+                }
+
+                // workaround for bug
+                if (fieldDeser.getOwnerClass() != null
+                        && (!fieldDeser.getOwnerClass().isInstance(object))
+                        && task.ownerContext.parent != null
+                ) {
+                    for (ParseContext ctx = task.ownerContext.parent;ctx != null;ctx = ctx.parent) {
+                        if (fieldDeser.getOwnerClass().isInstance(ctx.object)) {
+                            object = ctx.object;
+                            break;
+                        }
                     }
                 }
 
