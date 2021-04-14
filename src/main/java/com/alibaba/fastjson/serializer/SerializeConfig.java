@@ -77,7 +77,7 @@ public class SerializeConfig {
             };
 
     private List<Module>                                    modules                = new ArrayList<Module>();
-    
+
 	public String getTypeKey() {
 		return typeKey;
 	}
